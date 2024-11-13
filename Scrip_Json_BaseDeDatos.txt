@@ -1,0 +1,377 @@
+1. Ingreso de Datos en Formato JSON
+
+Podemos insertar registros utilizando JSON con la función OPENJSON para convertirlo a filas y columnas:
+
+DECLARE @jsonData NVARCHAR(MAX) = '
+[
+    {
+        "DNI": 34567890,
+        "Apellido_Nombre": "Lucas Fernandez",
+        "Fecha_Nacimiento": "1992-05-12",
+        "CUIL": 20345678901,
+        "Sexo": "M",
+        "Estado_Civil": "Soltero",
+        "Lugar_Nacimiento": "Mendoza",
+        "Grupo_Sanguineo": "B+",
+        "Id_Legajo": 2,
+        "Id_Domicilio": 2,
+        "Id_Cobertura": 1,
+        "Id_Contacto": 2
+    },
+    {
+        "DNI": 45678901,
+        "Apellido_Nombre": "Mariana Lopez",
+        "Fecha_Nacimiento": "1995-09-23",
+        "CUIL": 27456789012,
+        "Sexo": "F",
+        "Estado_Civil": "Casada",
+        "Lugar_Nacimiento": "Buenos Aires",
+        "Grupo_Sanguineo": "A-",
+        "Id_Legajo": 1,
+        "Id_Domicilio": 3,
+        "Id_Cobertura": 2,
+        "Id_Contacto": 1
+    }
+]'
+
+-- Insertar datos en la tabla DATOS_PERSONALES_PRIMARIOS desde JSON
+INSERT INTO DATOS_PERSONALES_PRIMARIOS (DNI, Apellido_Nombre, Fecha_Nacimiento, CUIL, Sexo, Estado_Civil, Lugar_Nacimiento, Grupo_Sanguineo, Id_Legajo, Id_Domicilio, Id_Cobertura, Id_Contacto)
+SELECT *
+FROM OPENJSON(@jsonData)
+WITH (
+    DNI INT,
+    Apellido_Nombre VARCHAR(100),
+    Fecha_Nacimiento DATE,
+    CUIL BIGINT,
+    Sexo CHAR(1),
+    Estado_Civil VARCHAR(50),
+    Lugar_Nacimiento VARCHAR(100),
+    Grupo_Sanguineo VARCHAR(5),
+    Id_Legajo INT,
+    Id_Domicilio INT,
+    Id_Cobertura INT,
+    Id_Contacto INT
+);
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+2. Consultar Datos en Formato JSON
+
+Para exportar datos a formato JSON, podemos usar la cláusula FOR JSON PATH:
+
+
+SELECT DNI, Apellido_Nombre, Fecha_Nacimiento, CUIL, Sexo, Estado_Civil, Lugar_Nacimiento, Grupo_Sanguineo
+FROM DATOS_PERSONALES_PRIMARIOS
+FOR JSON PATH, ROOT('Personas');
+
+
+Esto devuelve los registros en formato JSON con la raíz Personas.
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+3. Filtrado de Datos desde JSON
+
+Podemos filtrar datos JSON usando OPENJSON:
+
+DECLARE @jsonData NVARCHAR(MAX) = '
+[
+    { "DNI": 12345678, "Apellido_Nombre": "Juan Perez" },
+    { "DNI": 23456789, "Apellido_Nombre": "Ana Garcia" }
+]';
+
+SELECT *
+FROM OPENJSON(@jsonData)
+WITH (
+    DNI INT,
+    Apellido_Nombre VARCHAR(100)
+)
+WHERE DNI = 12345678;
+
+
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+4. Actualización de Datos Utilizando JSON
+
+Podemos actualizar filas usando valores JSON:
+
+
+DECLARE @jsonUpdate NVARCHAR(MAX) = '{
+    "DNI": 12345678,
+    "Estado_Civil": "Casado"
+}';
+
+UPDATE DATOS_PERSONALES_PRIMARIOS
+SET Estado_Civil = JSON_VALUE(@jsonUpdate, '$.Estado_Civil')
+WHERE DNI = JSON_VALUE(@jsonUpdate, '$.DNI');
+
+
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+5. Consultar Datos Específicos y Anidados
+
+Para acceder a propiedades anidadas, usamos JSON_QUERY y JSON_VALUE:
+
+DECLARE @nestedJson NVARCHAR(MAX) = '
+{
+    "Personal": {
+        "DNI": 34567890,
+        "Nombre": "Lucas Fernandez",
+        "Contacto": {
+            "Telefono": "123-4567",
+            "Email": "lucas.fernandez@ejemplo.com"
+        }
+    }
+}';
+
+SELECT 
+    JSON_VALUE(@nestedJson, '$.Personal.DNI') AS DNI,
+    JSON_VALUE(@nestedJson, '$.Personal.Nombre') AS Nombre,
+    JSON_VALUE(@nestedJson, '$.Personal.Contacto.Email') AS Email;
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+6. Insertar Datos desde JSON Complejo
+
+Insertar datos desde JSON con estructuras más complejas:
+
+DECLARE @complexJson NVARCHAR(MAX) = '
+[
+    {
+        "Legajo": {
+            "Id_Legajo": 1,
+            "Puesto_Laboral": "Suboficial"
+        },
+        "DatosPersonales": {
+            "DNI": 12345678,
+            "Apellido_Nombre": "Juan Perez"
+        }
+    }
+]';
+
+INSERT INTO LEGAJO (Id_Legajo, Puesto_Laboral)
+SELECT Id_Legajo, Puesto_Laboral
+FROM OPENJSON(@complexJson, '$')
+WITH (
+    Id_Legajo INT '$.Legajo.Id_Legajo',
+    Puesto_Laboral VARCHAR(100) '$.Legajo.Puesto_Laboral'
+);
+
+INSERT INTO DATOS_PERSONALES_PRIMARIOS (DNI, Apellido_Nombre, Id_Legajo)
+SELECT DNI, Apellido_Nombre, Id_Legajo
+FROM OPENJSON(@complexJson, '$')
+WITH (
+    DNI INT '$.DatosPersonales.DNI',
+    Apellido_Nombre VARCHAR(100) '$.DatosPersonales.Apellido_Nombre',
+    Id_Legajo INT '$.Legajo.Id_Legajo'
+);
+
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Explicación del Proyecto
+Este ejemplo demuestra cómo utilizar JSON en SQL Server para manejar la inserción, consulta, actualización y manipulación de datos.
+
+
+
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+INFORME:
+
+JSON NO ES UN TIPO DE DATOS DENTRO DE LA BASE DE DATOS, ASI COMO XCML O OTRO TIPO DE DATOS.
+
+-----------------------------------------------------------------------------------------------------------------------------------------
+-- Probando más funciones  
+---------------------------------------------
+
+-- FOR JSON
+
+---------------------------------------------
+
+SELECT * FROM MASTER.SYS.DATABASES
+ORDER BY 1
+FOR JSON PATH,ROOT('Bases')     --EL RESULTADO ES UN JSON CON EL NOMBRE DE TODAS LAS BASES DE DATOS 
+
+--FOR JSON INCLUYENDO NULOS
+DROP TABLE IF EXISTS JSONNULOS
+CREATE TABLE JSONNULOS (ID INT IDENTITY,
+						NOMBRE VARCHAR(255) NULL)
+INSERT INTO JSONNULOS (NOMBRE)
+VALUES ('Maxi'),(null),('Triggerdb.com')
+
+SELECT * FROM JSONNULOS
+FOR JSON AUTO
+
+SELECT * FROM JSONNULOS
+FOR JSON AUTO,INCLUDE_NULL_VALUES
+
+--JSON SIN LOS BRACKET
+
+SELECT TOP 1 SalesOrderNumber, OrderData, Status
+FROM AdventureWorks2016CTP3.Sales.SalesOrdeHeader
+ORDER BY ModifiedDate
+FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
+
+
+SELECT TOP 1 SalesOrderNumber, OrderData, Status
+FROM AdventureWorks2016CTP3.Sales.SalesOrdeHeader
+ORDER BY ModifiedDate
+FOR JSON PATH
+
+------------------------------------------------
+---FUNCIONES JSON
+------------------------------------------------
+
+---ISJSON
+
+DECLARE @JSON VARCHAR(MAX) = 'HOLA TRIGGERDB.COM'
+
+SELECT CASE WHEN ISJSON(@JSON) >0
+	THEN 'JSON Valido' ELSE 'JSON No Valido' END
+
+DECLARE @JSON VARCHAR(MAX) = '{"nombre": "TriggerDB.com",
+							 "Especialidad": "SQL Server"}'
+
+SELECT CASE WHEN ISJSON(@JSON) >0
+	THEN 'JSON Valido' ELSE 'JSON No Valido' END
+
+
+-- extraer valores 
+
+DROP TABLE IF EXISTS DBO.JSONDEMO
+CREATE TABLE DBO.JSONDEMO (JSONDATA VARCHAR(MAX))
+
+INSERT INTO DBO.JSONDEMO
+VALUES (
+'{
+	"info":{
+	 "type":1,
+
+	 "address":{
+	 "town":"Bristol",
+	 "county":"Avon",
+	 "country":"England"
+	 },
+	 "tags":["Sport", "Water polo"]
+	 },
+	 "type":"Basic"
+}'
+)
+
+--EXTRAER VALORES
+
+SELECT 
+	JSON_VALUE (JSONDATA, '$.type') as type,
+	JSON_VALUE (JSONDATA, '$.info.address.town') as town,
+	JSON_QUERY (JSONDATA, '$.info.tags') as tags
+FROM JSONDEMO
+
+
+----------------------------------------
+-- OPENJSON
+----------------------------------------
+
+DECLARE @JSON VARCHAR(MAX)
+SELECT @JSON = JSONDATA FROM JSONDEMO
+
+SELECT value
+FROM OPENJSON(@json, '$.info.tags')
+
+
+-- CARGAR UN JSON A UNA TABLA
+DROP TABLE IF EXISTS PERSON
+
+CREATE TABLE DBO.PERSON (Id INT,
+						 firstName nvarchar(50),
+						 lastName nvarchar(50),
+						 isAlive bit,
+						 age int,
+						 dateOfBirth datetime2,
+						 spunse nvarchar(50)
+)
+
+declare @person nvarchar(max) = '{
+	"id": 2,
+	"firstName": "John",
+	"lastName": "Smith",
+	"isAlive": true,
+	"age": 25,
+	"dateOfBirth": "2015-03-25T12:00:00",
+	"spouse": null
+}';
+
+INSERT INTO Person
+SELECT *
+FROM OPENJSON(@person)
+WITH (id int,
+	  firstName nvarchar(50),
+	  lastName nvarchar(50),
+	  isAlive bit,
+	  age int,
+	  dateOfBirth datetime2,
+	  spouce nvarchar(50))
+
+SELECT * FROM DBO.PERSON
+
+-----------------------------------------------------
+---GUARDAR JSON EN TABLAS 
+-----------------------------------------------------
+
+DROP TABLE IF EXISTS PERSON
+
+CREATE TABLE Person(
+	Id int IDENTITY PRIMARY KEY
+	FirstName nvarchar(100) NOT NULL,
+	LastName nvarchar(100) NOT NULL,
+	InfoJson nvarchar(max)
+)
+
+-- CREAMOS EL CONSTRAINT PARA SOPORTAR SOLO VALORES JSON
+
+ALTER TABLE Person
+ADD CONSTRAINT [Content should be formatted as JSON]
+CHECK (ISJSON (InfoJSON)>0)
+
+-- insertamos registros
+INSERT INTO DBO.Person (FirstName,LastName,InfoJson)
+SELECT P1.FirstName,
+	(
+	SELECT P.City,
+		   P.EmailAddress,
+		   P.JobTitle
+	FROM AdventureWorks2016CTP3.SALES.vSalesPerson AS P
+	WHERE P1.BusinessEntityID = P.BusinessEntityID
+	FOR JSON PATH,WITHOUT_ARRAY_WRAPPER
+	)
+FROM
+AdventureWorks2016CTP3.SALES.vSalesPerson AS P1 
+
+
+SELECT * FROM DBO.Person
+
+-- INDICES 
+
+ALTER TABLE Person 
+ADD vCITY AS JSON_VALUE(InfoJSON, '$.City')
+
+CREATE INDEX idx_Person_1X
+ON Person(vCITY)
+INCLUDE(FIRSTNAME,LASTNAME)
+
+SELECT FirstName,LastName,VCITY
+FROM DBO.Person
+WHERE VCITY = 'Bellvue'
+
+
+
+
+
+
+
+
+
+
